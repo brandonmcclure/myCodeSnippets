@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<CodeSnippets  xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet">
+  <_locDefinition xmlns="urn:locstudio">
+    <_locDefault _loc="locNone" />
+    <_locTag _loc="locData">Brandon McClure</_locTag>
+    <_locTag _loc="locData">Description</_locTag>
+    <_locTag _loc="locData">Author</_locTag>
+    <_locTag _loc="locData">ToolTip</_locTag>
+  </_locDefinition>
+  <CodeSnippet Format="1.0.0">
+    <Header>
+      <Title>tSQLt test template</Title>
+      <Shortcut></Shortcut>
+      <Description>Creates a tSQLt test template which will work with additional debugging if enabled</Description>
+      <Author>Brandon McClure</Author>
+      <SnippetTypes>
+        <SnippetType>Expansion</SnippetType>
+      </SnippetTypes>
+    </Header>
+    <Snippet>
+      <Declarations>
+		<Literal>
+          <ID>Description</ID>
+          <ToolTip>Name of the input parameter</ToolTip>
+          <Default>Describe the behaviour you are tryng to test. We know what object you are testing from the file name standards, but what do you expect this object to do?</Default>
+        </Literal>
+		<Literal>
+          <ID>schemaName</ID>
+          <ToolTip>the schema/tSQLt class of the test you are creating</ToolTip>
+          <Default>tests_myTestClassName</Default>
+        </Literal>
+        <Literal>
+          <ID>TestName</ID>
+          <ToolTip>The name of the test itself, ie MyStoredProcedure_ShouldExcludePatientsUnder18 or MyReportView_OneRowPerBillingAccount</ToolTip>
+          <Default>MyReportView_OneRowPerBillingAccount</Default>
+        </Literal>
+      </Declarations>
+      <Code Language="SQL_SSDT">
+        <![CDATA[
+/*                                           
+Description: $Description$
+--------------------------------------------------------------------------
+CHANGE HISTORY: see git log
+*/
+CREATE PROCEDURE [$schemaName$].[test $TestName$]
+AS
+     DECLARE @Debug BIT=
+     (
+         SELECT CASE
+                    WHEN coalesce(IsDebug,0) =1
+                    THEN 1
+                    ELSE 0
+                END
+         FROM tSQLt.DebugTests
+     );
+	 
+	 --Arrange
+		--Setup our fake tables that are specific to this test
+		--You can also fake/insert data in the tSQLt class setup procedures, so keep that in mind when inserting data here
+	EXEC tSQLt.FakeTable '[dbo].[TableThatMyObjectUses]';
+
+	INSERT INTO [dbo].[TableThatMyObjectUses] ([Key],[column1])
+	Values
+	(1,'string value')
+	,(2,'string value')
+	 
+	 --Act
+		--Exercise the functionality you are testing (IE execute your stored proc with the parameters needed for the test, query your view with proper where critera for the test)
+		--Here you are structureing the response into a temp table that will be used in the next step to actually check the value that are returned against what you expect. 
+	
+	create table #actual(Key bigint)
+	
+	select Key 
+	into #actual
+	from
+	MyReportView
+	group by Key
+	having count(*) > 1
+	 
+	 --Assert
+		--Create the #expected table, which will contain what the results from your object should be
+		--This is where it actually tests if A = B. The most common way is to check if 2 temp tables are equivelent, but there are other assertations you can make. 
+		
+	create table #expected(Key bigint)
+	--Depending on how you write the test 
+	
+     EXEC tSQLt.AssertEqualsTable 
+          '#Expected', 
+          '#Actual';
+]]>
+      </Code>
+    </Snippet>
+  </CodeSnippet>
+</CodeSnippets>
