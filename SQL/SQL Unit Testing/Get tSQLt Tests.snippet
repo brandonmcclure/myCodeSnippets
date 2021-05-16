@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8" ?> <CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet"> <CodeSnippet Format="1.0.0"> <Header><Title>Get tSQLt tests</Title><Shortcut></Shortcut><Description>Get tSQLt tests</Description><Author>Brandon McClure</Author> <SnippetTypes><SnippetType>Expansion</SnippetType></SnippetTypes></Header><Snippet><Declarations>
+			</Declarations><Code Language="SQL"><![CDATA[SELECT s.name+'.'+o.name
+FROM sys.objects o
+     LEFT JOIN sys.schemas s ON o.schema_id = s.schema_id
+WHERE s.name LIKE 'tests_%'
+      AND o.name LIKE 'test %';
+]]></Code></Snippet></CodeSnippet></CodeSnippets>

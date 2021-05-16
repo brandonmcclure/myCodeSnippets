@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8" ?> <CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet"> <CodeSnippet Format="1.0.0"> <Header><Title>Create Table Statement from Temp Table</Title><Shortcut></Shortcut><Description>Generate a CREATE TABLE statement from a temp table definition, or a stored proc</Description><Author>Brandon McClure</Author> <SnippetTypes><SnippetType>Expansion</SnippetType></SnippetTypes></Header><Snippet><Declarations>
+                                <Literal>
+                                	<ID>TempTableName</ID>
+                                	<ToolTip>The name of the global temp table you are inserting data into</ToolTip>
+                                	<Default>NULL</Default>
+                                </Literal>
+								<Literal>
+                                	<ID>newTableName</ID>
+                                	<ToolTip>The name of the new table</ToolTip>
+                                	<Default>NULL</Default>
+                                </Literal>
+								<Literal>
+                                	<ID>userCode</ID>
+                                	<ToolTip>Put in any code here</ToolTip>
+                                	<Default>select NULL</Default>
+                                </Literal>
+</Declarations><Code Language="SQL"><![CDATA[/*                                           
+Description: Given a temp table populated with data, what should my CREATE TABLE statement be to actually create it? 
+
+Can also give you the statement from a Stored Procedure result. 
+ 
+--------------------------------------------------------------------------
+CHANGE HISTORY:
+__________________________________________________________________________
+Date             Author                             Description
+----------    --------------    -------------------------------------------
+2017.06.14		Brandon McClure		Added this documentation. Added code that identifies the max len() of columns            
+2018.07.13      Brandon McClure     Quote the column names so this can handle when I pass in poorly named columns 
+2019.03.04     Brandon McClure     added @isStoredProcedure 
+*/
+
+
+/*
+    @tempTableName
+    Either the name of the temp table name, or of the schema.name of your stored procedure
+*/
+DECLARE @tempTableName VARCHAR(254) = '$TempTableName$' 
+/*
+    @newTableName
+    This will be the name of the new table
+*/
+DECLARE @newTableName VARCHAR(254) = '$newTableName$'
+/*
+    @isStoredProcedure
+    Set this to 1 if @tempTableName is a stored procedure
+*/
+DECLARE @isStoredProcedure bit = 1
+/*
+    @Debug
+    Gives you extra information as it runs to track down bugs :-)
+*/
+DECLARE @Debug BIT = 1
+
+
+SET NOCOUNT ON;
+/*---------- vvv User code (Temp table definition goes here) vvv ----------*/
+
+$userCode$
+
+/*---------- ^^^ User code (Temp table definition goes here) ^^^ ----------*/
+
+/* DO NOT TOUCH BELOW HERE */
+DECLARE @cursor  CURSOR,
+        @colName NVARCHAR(128) = NULL,
+        @colType NVARCHAR(128),
+        @sql     NVARCHAR(max) = NULL,
+		@ErrorCode     INT,
+        @ErrorState    INT,
+        @ErrorSeverity INT,
+        @Message       NVARCHAR(MAX) = NULL
+
+IF Object_id('tempdb..##cols') IS NOT NULL
+  DROP TABLE ##cols
+
+CREATE TABLE ##cols
+  (
+     colName    NVARCHAR(128),
+     DataType   NVARCHAR(128),
+     maxLen     NVARCHAR(200),
+     valWMaxLen NVARCHAR(max)
+  )
+declare @describeStatement nvarchar(max)
+  if (@isStoredProcedure = 1)
+begin
+ set @describeStatement= N'EXEC '+@tempTableName
+end
+
+if(@isStoredProcedure = 0)
+begin
+/*
+Identify Max Lengths for columns
+Start
+*/
+SET @cursor = CURSOR
+FOR SELECT QUOTENAME(col.NAME) 'ColumnName',
+           typ.NAME
+           + CASE
+               WHEN typ.NAME IN ( 'nvarchar', 'varchar' ) THEN '(' + Cast(typ.max_length AS VARCHAR(200))
+                                                               + ')'
+               WHEN typ.NAME = 'numeric' THEN '(' + Cast(typ.PRECISION AS VARCHAR(200))
+                                              + ',' + Cast(typ.scale AS VARCHAR(200)) + ')'
+               ELSE ''
+             END    'DataType'
+    FROM   tempdb.sys.columns col
+           LEFT JOIN tempdb.sys.types typ
+                  ON col.SYSTEM_TYPE_ID = typ.system_type_id
+    WHERE  Object_id('tempdb..' + @tempTableName) = col.object_id
+
+OPEN @cursor
+
+FETCH NEXT FROM @cursor INTO @colName, @colType
+
+WHILE @@FETCH_STATUS = 0
+  BEGIN
+      SET @sql= 'INSERT INTO ##cols SELECT top 1 '''
+                + @colName + ''', ''' + @colType + ''',CAST(LEN('
+                + @colName + ') as nvarchar(100)) AS mlen, '
+                + @colName + '
+FROM ' + @tempTableName
+                + ' ORDER BY mlen DESC'
+
+      IF @Debug = 1
+        BEGIN
+            RAISERROR(@sql,0,1) WITH nowait
+        END
+
+      BEGIN try
+          EXEC Sp_executesql
+            @sql
+      END try
+      BEGIN catch
+          SET @Message = Error_message()
+          SET @ErrorSeverity = Error_severity()
+          SET @ErrorState = Error_state()
+          SET @ErrorCode = Error_number()
+          --ROLLBACK TRAN
+          RAISERROR(@Message,@ErrorSeverity,@ErrorState)
+      --RETURN @ErrorCode
+      END catch
+
+      FETCH NEXT FROM @cursor INTO @colName, @colType
+  END;
+
+CLOSE @cursor
+
+DEALLOCATE @cursor
+
+SELECT 'Columns from temp table and their max len()' 'ResultType',
+       *
+FROM   ##cols
+/*
+End
+Identify Max Lengths for columns
+*/
+set @describeStatement = N'SELECT * FROM ' + @tempTableName
+end
+/*
+	This code generates and prints the create table code from the temp table that you created above. It uses the sys.Dm_exec_describe_first_result_set to get the data type. 
+	TODO: Integrate it with the column length code above to better identify what the data type should be
+*/
+if (@describeStatement is null)
+raiserror('I am broken',6,1)
+DECLARE @justColNames NVARCHAR(MAX) = N'';
+
+SELECT @justColNames += N',[' + NAME + '] '
+FROM   sys.Dm_exec_describe_first_result_set(@describeStatement, NULL, 1)
+where is_hidden = 0;
+SET @justColNames = Stuff(@justColNames, 1, 1, N'');
+select @justColNames 'Just Column Names'
+
+DECLARE @cols NVARCHAR(MAX) = N'';
+
+SELECT @cols += N',[' + NAME + '] ' + system_type_name
+FROM   sys.Dm_exec_describe_first_result_set(@describeStatement, NULL, 1)
+where is_hidden = 0;
+
+SET @cols = Stuff(@cols, 1, 1, N'');
+SET @sql = N'DROP TABLE IF EXISTS ' + @newTableName +N'; CREATE TABLE ' + @newTableName + '(' + @cols
+           + ');'
+
+select @sql;
+
+IF Object_id('tempdb..##cols') IS NOT NULL
+  DROP TABLE ##cols 
+]]></Code></Snippet></CodeSnippet></CodeSnippets>

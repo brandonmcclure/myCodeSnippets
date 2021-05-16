@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet">
+   <CodeSnippet Format="1.0.0">
+      <Header>
+         <Title>Group by column and count</Title>
+         <Shortcut />
+         <Description>Group by column and count</Description>
+         <Author>Brandon McClure</Author>
+         <SnippetTypes>
+            <SnippetType>Expansion</SnippetType>
+         </SnippetTypes>
+      </Header>
+      <Snippet>
+         <Declarations>
+            <Literal>
+               <ID>ColumnName</ID>
+               <ToolTip>The column to group by</ToolTip>
+               <Default>NULL</Default>
+            </Literal>
+            <Literal>
+               <ID>TableName</ID>
+               <ToolTip>The tabley</ToolTip>
+               <Default>NULL</Default>
+            </Literal>
+         </Declarations>
+         <Code Language="SQL"><![CDATA[select $ColumnName$, Count(*) 'cnt'
+from $TableName$
+group by $ColumnName$]]></Code>
+      </Snippet>
+   </CodeSnippet>
+</CodeSnippets>

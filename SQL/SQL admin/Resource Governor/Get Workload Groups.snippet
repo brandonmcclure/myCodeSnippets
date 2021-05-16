@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8" ?> <CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet"> <CodeSnippet Format="1.0.0"> <Header><Title>Get Workload Groups</Title><Shortcut></Shortcut><Description>Get resource governor workload groups</Description><Author>Brandon McClure</Author> <SnippetTypes><SnippetType>Expansion</SnippetType></SnippetTypes></Header><Snippet><Code Language="SQL"><![CDATA[
+			SELECT group_id, [name] as group_name, pool_id, total_request_count, total_cpu_usage_ms
+    FROM sys.dm_resource_governor_workload_groups
+]]></Code></Snippet></CodeSnippet></CodeSnippets>

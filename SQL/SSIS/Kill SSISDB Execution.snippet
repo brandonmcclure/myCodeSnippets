@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8" ?> <CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet"> <CodeSnippet Format="1.0.0"> <Header><Title>Kill SSISDB Execution</Title><Shortcut></Shortcut><Description>Stored proc to kill an SSISDB execution</Description><Author>Brandon McClure</Author> <SnippetTypes><SnippetType>Expansion</SnippetType></SnippetTypes></Header><Snippet><Declarations>
+                                <Literal>
+                                	<ID>ExecutionID</ID>
+                                	<ToolTip>The execution ID to Kill</ToolTip>
+                                	<Default>NULL</Default>
+                                </Literal>
+			</Declarations><Code Language="SQL"><![CDATA[exec SSISDB.catalog.stop_operation @Operation_id = $ExecutionID$]]></Code></Snippet></CodeSnippet></CodeSnippets>

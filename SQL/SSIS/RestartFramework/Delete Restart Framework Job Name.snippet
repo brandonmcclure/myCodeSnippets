@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" ?> <CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet"> <CodeSnippet Format="1.0.0"> <Header><Title>Delete Restart Framework Job Name</Title><Shortcut></Shortcut><Description>Deletes a SSIS Restart Framework job</Description><Author>Brandon McClure</Author> <SnippetTypes><SnippetType>Expansion</SnippetType></SnippetTypes></Header><Snippet><Code Language="SQL"><![CDATA[USE SsisReportingPack
+
+go
+
+DECLARE @JobName VARCHAR(100) = 'Cube Daily Jobs';
+DECLARE @CommitTran BIT = 0 --Set to 1 when you are sure you want to make the changes
+--Get all configured jobs
+
+SELECT DISTINCT eJ.ETLJobId    'Job Id that will be deleted'
+                ,ej.ETLJobName 'Job name that will be deleted'
+FROM   RestartFramework.ETLJob ej
+WHERE  ej.ETLJobName = @JobName
+
+--Get all the stages for a Job
+SELECT *
+FROM   RestartFramework.ETLJob eJ
+       INNER JOIN RestartFramework.ETLJobStage eJS ON eJ.ETLJobId = eJS.ETLJobId
+WHERE  eJ.ETLJobName = @JobName
+
+BEGIN TRAN
+
+EXEC RestartFramework.Removeetljob
+  @JobName
+
+--Get all configured jobs
+SELECT DISTINCT eJ.ETLJobId    'Job Id that will be deleted'
+                ,ej.ETLJobName 'Job name that will be deleted'
+FROM   RestartFramework.ETLJob ej
+WHERE  ej.ETLJobName = @JobName
+
+IF @CommitTran = 1
+  BEGIN
+      COMMIT TRAN
+  END
+ELSE
+  BEGIN
+      ROLLBACK TRAN
+  END 
+
+]]></Code></Snippet></CodeSnippet></CodeSnippets>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8" ?> <CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet"> <CodeSnippet Format="1.0.0"> <Header><Title>Get SSISDB Messages</Title><Shortcut></Shortcut><Description>Get logging information for a SSISDB execution</Description><Author>Brandon McClure</Author> <SnippetTypes><SnippetType>Expansion</SnippetType></SnippetTypes></Header><Snippet><Declarations>
+                                <Literal>
+                                	<ID>ExecutionID</ID>
+                                	<ToolTip>The execution ID to Kill</ToolTip>
+                                	<Default>NULL</Default>
+                                </Literal>
+			</Declarations><Code Language="SQL"><![CDATA[exec [SSISReportingPack].[DHExt].[AdHocExecutionSummaryAndDetails] @ExecutionID = $ExecutionID$]]></Code></Snippet></CodeSnippet></CodeSnippets>

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?> <CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet"> <CodeSnippet Format="1.0.0"> <Header><Title>Delete Restart Framework Job Step</Title><Shortcut></Shortcut><Description>Deletes a SSIS Restart Framework job step</Description><Author>Brandon McClure</Author> <SnippetTypes><SnippetType>Expansion</SnippetType></SnippetTypes></Header><Snippet><Code Language="SQL"><![CDATA[USE SsisReportingPack
+
+go
+/*                                           
+Description: This script will delete a job stage from a SSIS Restart Framework job. Leave the @JobName variable null and it will list all the current jobs for you to pick one               
+ 
+--------------------------------------------------------------------------
+CHANGE HISTORY:
+__________________________________________________________________________
+Date             Author                             Description
+----------    --------------    -------------------------------------------
+2017.02.17		Brandon McClure		Added this documentation             
+ 
+*/
+
+DECLARE @JobName VARCHAR(100) = null; --Leave null to list all jobs
+DECLARE @JobStageName VARCHAR(100) = 'DailyLoadOneSpreadsheet';
+DECLARE @CommitTran BIT = 0 --Set to 1 when you are sure you want to make the changes
+BEGIN TRAN
+
+IF @JobName IS NULL
+  BEGIN
+      --Get all configured jobs
+      SELECT DISTINCT eJ.ETLJobId,
+                      ej.ETLJobName
+      FROM   RestartFramework.ETLJob ej
+  END
+ELSE
+  BEGIN
+      SELECT *
+      FROM   RestartFramework.Getetljobstagevisualisation(@JobName)
+
+      EXEC RestartFramework.Removeetljobstage
+        @JobName,
+        @JobStageName
+
+      SELECT *
+      FROM   RestartFramework.Getetljobstagevisualisation_dh(@JobName)
+
+      IF @CommitTran = 1
+        BEGIN
+            COMMIT TRAN
+        END
+      ELSE
+        BEGIN
+            ROLLBACK TRAN
+        END
+  END 
+
+]]></Code></Snippet></CodeSnippet></CodeSnippets>

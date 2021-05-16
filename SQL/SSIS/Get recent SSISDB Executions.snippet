@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8" ?> <CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet"> <CodeSnippet Format="1.0.0"> <Header><Title>Get recent SSISDB Executions</Title><Shortcut></Shortcut><Description>Get recent SSISDB Executions</Description><Author>Brandon McClure</Author> <SnippetTypes><SnippetType>Expansion</SnippetType></SnippetTypes></Header><Snippet><Code Language="SQL"><![CDATA[SELECT TOP 100 *
+FROM SSISReportingPack.DHExt.SSISDB_Executions_V ex
+ORDER BY ex.start_time DESC]]></Code></Snippet></CodeSnippet></CodeSnippets>

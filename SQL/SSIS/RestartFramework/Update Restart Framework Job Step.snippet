@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" ?> <CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet"> <CodeSnippet Format="1.0.0"> <Header><Title>Create Restart Framework Job Step</Title><Shortcut></Shortcut><Description>Creates a SSIS Restart Framework job step</Description><Author>Brandon McClure</Author> <SnippetTypes><SnippetType>Expansion</SnippetType></SnippetTypes></Header><Snippet><Code Language="SQL"><![CDATA[use SsisReportingPack
+go
+
+--Get all configured jobs
+  SELECT distinct eJ.ETLJobId, ej.ETLJobName
+  FROM RestartFramework.ETLJob ej
+
+--Once you know the job name, enter it here
+DECLARE @JobName varchar(100) = 'Cube - Caboodle ETLs';
+DECLARE @JobStageName varchar(100) = 'BillingTransactionFact'
+DECLARE @JobStageOrder int = 1
+DECLARE @CommitTran BIT = 0 --Set to 1 when you are sure you want to make the changes
+
+--Get the JobID
+declare @JobID int = (SELECT distinct eJ.ETLJobId
+  FROM RestartFramework.ETLJob ej where ej.ETLJobName = @JobName)
+
+--Get all the stages for the specified Job
+SELECT *
+FROM RestartFramework.ETLJob eJ
+INNER JOIN RestartFramework.ETLJobStage eJS on eJ.ETLJobId = eJS.ETLJobId
+WHERE eJ.ETLJobName = @JobName
+
+begin tran
+
+exec RestartFramework.PutETLJobStage @pETLJobID =  @JobID, @pETLJobStageName = @JobStageName, @pETLJobStageOrder = @JobStageOrder
+
+--Get all the stages for the specified Job
+SELECT *
+FROM RestartFramework.ETLJob eJ
+INNER JOIN RestartFramework.ETLJobStage eJS on eJ.ETLJobId = eJS.ETLJobId
+WHERE eJ.ETLJobName = @JobName
+ORDER BY ETLJobStageOrder
+
+IF @CommitTran = 1
+  BEGIN
+      COMMIT TRAN
+  END
+ELSE
+  BEGIN
+      ROLLBACK TRAN
+  END 
+
+]]></Code></Snippet></CodeSnippet></CodeSnippets>

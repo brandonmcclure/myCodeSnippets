@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?> <CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet"> <CodeSnippet Format="1.0.0"> <Header><Title>Basic Cursor</Title><Shortcut></Shortcut><Description>Basic cursor for doing slow sql</Description><Author>Brandon McClure</Author> <SnippetTypes><SnippetType>Expansion</SnippetType></SnippetTypes></Header><Snippet><Declarations>
+                                <Literal>
+                                	<ID>CursorLoadStatement</ID>
+                                	<ToolTip>This is the SQL that will SET your cursor by filling it with data. You need to keep this filtered to only the rows you want to iterate over</ToolTip>
+                                	<Default>select 'TableName' as [TableName], 'KeyColumn' as [KeyColumn] from my.Table</Default>
+                                </Literal>
+								<Literal>
+                                	<ID>CursorTargetVariables</ID>
+                                	<ToolTip>A list of variables that will hold values from each iteration of your cursor. Make sure to Declare them as the right type above!</ToolTip>
+                                	<Default>@tableName, @KeyColumnName</Default>
+                                </Literal>
+								<Literal>
+                                	<ID>DoWork</ID>
+                                	<ToolTip>Execute sprocs, read the data into a csv file... idk what, just do something with your cursor.</ToolTip>
+                                	<Default>SELECT NULL</Default>
+                                </Literal>
+</Declarations><Code Language="SQL"><![CDATA[DECLARE @cursor CURSOR
+
+SET @cursor = CURSOR
+FOR 
+$CursorLoadStatement$
+
+OPEN @cursor
+
+FETCH NEXT FROM @cursor INTO $CursorTargetVariables$
+
+WHILE @@FETCH_STATUS = 0
+  BEGIN
+	$DoWork$
+
+	  FETCH NEXT FROM @cursor INTO $CursorTargetVariables$
+  END;
+
+CLOSE @cursor
+
+DEALLOCATE @cursor
+]]></Code></Snippet></CodeSnippet></CodeSnippets>

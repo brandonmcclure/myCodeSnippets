@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8" ?> <CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet"> <CodeSnippet Format="1.0.0"> <Header><Title>SP_Who2</Title><Shortcut></Shortcut><Description>Get SP_Who2 info</Description><Author>Brandon McClure</Author> <SnippetTypes><SnippetType>Expansion</SnippetType></SnippetTypes></Header><Snippet><Declarations>
+                                <Literal>
+                                	<ID>SessionID</ID>
+                                	<ToolTip>The Session ID to get the execution plan</ToolTip>
+                                	<Default>NULL</Default>
+                                </Literal>
+			</Declarations><Code Language="SQL"><![CDATA[DECLARE @sessionID INT= $SessionID$
+
+IF OBJECT_ID('tempdb.dbo.#sp_who2') IS NOT NULL
+    DROP TABLE #sp_who2
+CREATE TABLE #sp_who2
+(SPID        INT,
+ Status      VARCHAR(1000) NULL,
+ Login       SYSNAME NULL,
+ HostName    SYSNAME NULL,
+ BlkBy       SYSNAME NULL,
+ DBName      SYSNAME NULL,
+ Command     VARCHAR(1000) NULL,
+ CPUTime     INT NULL,
+ DiskIO      INT NULL,
+ LastBatch   VARCHAR(1000) NULL,
+ ProgramName VARCHAR(1000) NULL,
+ SPID2       INT NULL,
+ REQUESTUD   INT NULL
+)
+INSERT INTO #sp_who2
+EXEC sp_who2
+SELECT TOP 5 'Top 5 CPU TIME' 'ResultType',
+             #sp_who2.SPID,
+             #sp_who2.Status,
+             #sp_who2.Login,
+             #sp_who2.HostName,
+             #sp_who2.BlkBy,
+             #sp_who2.DBName,
+             #sp_who2.Command,
+             #sp_who2.CPUTime,
+             #sp_who2.DiskIO,
+             #sp_who2.LastBatch,
+             #sp_who2.ProgramName,
+             #sp_who2.REQUESTUD
+FROM #sp_who2
+ORDER BY cputime DESC
+SELECT TOP 5 'Top 5 DISK IO' 'ResultType',
+             #sp_who2.SPID,
+             #sp_who2.Status,
+             #sp_who2.Login,
+             #sp_who2.HostName,
+             #sp_who2.BlkBy,
+             #sp_who2.DBName,
+             #sp_who2.Command,
+             #sp_who2.CPUTime,
+             #sp_who2.DiskIO,
+             #sp_who2.LastBatch,
+             #sp_who2.ProgramName,
+             #sp_who2.SPID2,
+             #sp_who2.REQUESTUD
+FROM #sp_who2
+ORDER BY diskio DESC
+SELECT 'BLOCKS' 'ResultType',
+       #sp_who2.SPID,
+       #sp_who2.Status,
+       #sp_who2.Login,
+       #sp_who2.HostName,
+       #sp_who2.BlkBy,
+       #sp_who2.DBName,
+       #sp_who2.Command,
+       #sp_who2.CPUTime,
+       #sp_who2.DiskIO,
+       #sp_who2.LastBatch,
+       #sp_who2.ProgramName,
+       #sp_who2.SPID2,
+       #sp_who2.REQUESTUD
+FROM #sp_who2
+WHERE blkby != '  .'
+SELECT 'Running Queries' 'ResultType',
+       req.session_id,
+       sqltext.TEXT,
+       req.status,
+       req.command,
+       req.start_time,
+       req.database_id,
+       req.reads,
+       req.writes,
+       req.cpu_time,
+       req.total_elapsed_time
+FROM sys.dm_exec_requests req
+     CROSS APPLY sys.dm_exec_sql_text(sql_handle) AS sqltext
+SELECT 'Open Transactions' 'ResultType',
+       sysprocesses.spid,
+       sysprocesses.hostname,
+       sysprocesses.loginame,
+       sysprocesses.last_batch,
+       sysprocesses.program_name,
+       sysprocesses.kpid,
+       sysprocesses.blocked,
+       sysprocesses.waittype,
+       sysprocesses.waittime,
+       sysprocesses.lastwaittype,
+       sysprocesses.waitresource,
+       sysprocesses.dbid,
+       sysprocesses.uid,
+       sysprocesses.cpu,
+       sysprocesses.physical_io,
+       sysprocesses.memusage,
+       sysprocesses.login_time
+FROM sys.sysprocesses
+WHERE open_tran = 1
+IF(@sessionID IS NOT NULL)
+    BEGIN
+        SELECT 'Execution Plan for sessionid: '+CAST(@sessionID AS VARCHAR(100)) 'ResultType',
+               dm_exec_query_plan.dbid,
+               dm_exec_query_plan.objectid,
+               dm_exec_query_plan.number,
+               dm_exec_query_plan.encrypted,
+               dm_exec_query_plan.query_plan
+        FROM sys.dm_exec_query_plan
+        (
+        (
+            SELECT plan_handle
+            FROM sys.dm_exec_requests
+            WHERE session_id = @sessionID
+        )
+        )
+        SELECT plan_handle
+        FROM sys.dm_exec_requests
+        WHERE session_id = @sessionID
+END]]></Code></Snippet></CodeSnippet></CodeSnippets>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" ?> <CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet"> <CodeSnippet Format="1.0.0"> <Header><Title>Get recent deadlocks</Title><Shortcut></Shortcut><Description>Get recent Deadlock graphs and other information</Description><Author>Brandon McClure</Author> <SnippetTypes><SnippetType>Expansion</SnippetType></SnippetTypes></Header><Snippet><Code Language="SQL"><![CDATA[
+			SELECT top 1000 XEvent.query('(event/data/value/deadlock)[1]') AS DeadlockGraph, 
+XEvent.value('(event/@timestamp)[1]','datetime') 'DeadlockEventDTTM',
+	   case when XEvent.value('(event/data/value/deadlock/process-list/process/@id)[1]', 'varchar(max)') = XEvent.value('(event/data/value/deadlock/victim-list/victimProcess/@id)[1]', 'varchar(max)') then 1 else 2 end 'Which Process Is Victim?',
+       --XEvent.value('(event/data/value/deadlock/process-list/process/@id)[1]', 'varchar(max)') '1_ID',
+	  XEvent.value('(event/data/value/deadlock/process-list/process/@loginname)[1]', 'varchar(max)') '1_User', 
+	  XEvent.value('(event/data/value/deadlock/process-list/process/@hostname)[1]', 'varchar(max)') '1_Hostname', 
+	  XEvent.value('(event/data/value/deadlock/process-list/process/@lasttranstarted)[1]', 'datetime') '1_LastTransactionStarted',
+	  XEvent.value('(event/data/value/deadlock/process-list/process/executionStack/frame)[1]', 'varchar(max)') '1_OffendingSQL',
+	  XEvent.value('(event/data/value/deadlock/process-list/process/executionStack/frame/@procname)[1]', 'varchar(max)') '1_OffendingProcName',
+	  XEvent.value('(event/data/value/deadlock/process-list/process/executionStack/frame/@line)[1]', 'varchar(max)') '1_OffendingLine',
+	  --XEvent.value('(event/data/value/deadlock/process-list/process/@id)[2]', 'varchar(max)') '2_ID',
+       XEvent.value('(event/data/value/deadlock/process-list/process/@loginname)[2]', 'varchar(max)') '2_User',
+	  XEvent.value('(event/data/value/deadlock/process-list/process/@hostname)[2]', 'varchar(max)') '2_Hostname', 
+	  XEvent.value('(event/data/value/deadlock/process-list/process/@lasttranstarted)[2]', 'datetime') '2_LastTransactionStarted',
+		  XEvent.value('(event/data/value/deadlock/process-list/process/executionStack/frame)[2]', 'varchar(max)') '2_OffendingSQL',
+	  XEvent.value('(event/data/value/deadlock/process-list/process/executionStack/frame/@procname)[2]', 'varchar(max)') '2_OffendingProcName',
+	  XEvent.value('(event/data/value/deadlock/process-list/process/executionStack/frame/@line)[2]', 'varchar(max)') '2_OffendingLine'
+FROM
+(
+    SELECT XEvent.query('.') AS XEvent
+    FROM
+    (
+        SELECT CAST(target_data AS XML) AS TargetData
+        FROM sys.dm_xe_session_targets st
+             INNER JOIN sys.dm_xe_sessions s ON s.address = st.event_session_address
+        WHERE s.NAME = 'system_health'
+              AND st.target_name = 'ring_buffer'
+    ) AS Data
+    CROSS APPLY TargetData.nodes('RingBufferTarget/event[@name="xml_deadlock_report"]') AS XEventData(XEvent)
+) AS source
+order by XEvent.value('(event/@timestamp)[1]','datetime') desc
+]]></Code></Snippet></CodeSnippet></CodeSnippets>
