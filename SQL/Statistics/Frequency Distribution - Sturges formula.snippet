@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="utf-8" ?> <CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet"> <CodeSnippet Format="1.0.0"> <Header><Title>Frequency Distribution - Sturges formula</Title><Shortcut></Shortcut><Description>Generates a frequency distribution table automatically using Sturges formula to take a best guess at what ranges/number of bins to create for a given table/query</Description><Author>Brandon McClure</Author> <SnippetTypes><SnippetType>Expansion</SnippetType></SnippetTypes></Header><Snippet><Declarations>
+                            
+</Declarations><Code Language="SQL"><![CDATA[/*
+Description: This procedure generates a frequency distribution of values in a specified object. 
+    Currently it only works for global temp tables, and columns with int values. 
+
+    It uses Sturges'' formula to identify the number of bins.
+    
+    Returns 0 for success. 
+ 
+    PARAMETERS
+    @SchemaName
+    Optional; Default NULL
+    The schema to use if you are analysing a database object. Leave blank if you are passing a global temp table. 
+    @ObjName
+    Required
+    The global temp table, or database object name that holds the data you want to analyze
+    @ColName
+    Required
+    The column name in the @ObjName that you want to analyze
+    @logBase
+    Optional; Default = 2
+    The logarithm base used in Sturges formula to identify the number of bins. Generally, to reduce the number of bins generated, increase this parameter. 
+    @Debug
+    Optional; Default = 0
+    if 1, debug messages and result will be displayed. (dynamically generated sql, variable values at different phases of the operation)
+ 
+--------------------------------------------------------------------------
+CHANGE HISTORY: See git history
+*/
+
+DECLARE @SchemaName NVARCHAR(128) = NULL
+      , @ObjName    NVARCHAR(128) = '##scoreDist'
+      , @ColName    NVARCHAR(128) = 'AttributeToBinBy'
+      , @logBase    [decimal]         = 3
+      , @Debug      BIT           = 0
+
+
+/*---------- vvv User code (Temp table definition goes here) vvv ----------*/
+
+IF OBJECT_ID(N'tempdb.dbo.##scoreDist')IS NOT NULL
+       DROP TABLE ##scoreDist
+
+SELECT UniqueKeyColumn, AttributeToBinBy as [AttributeToBinBy]
+into ##scoreDist
+from my.[table] 
+
+/*---------- ^^^ User code (Temp table definition goes here) ^^^ ----------*/
+
+BEGIN TRAN;
+BEGIN TRY
+    DECLARE @Message NVARCHAR(MAX);
+    --Parameter validation
+    IF(@SchemaName IS NULL
+       AND LEFT(@ObjName, 2) <> '##')
+            THROW 50001, 'Please pass a full object name, or a global temp table', 1;
+        ELSE
+        BEGIN
+            IF(@SchemaName IS NULL
+               AND OBJECT_ID('tempdb..'+@ObjName) IS NULL)
+                BEGIN
+                    SET @Message = 'Could not find a global temp table with the name: '+@ObjName;
+                    THROW 50001, @Message, 1;
+            END;
+                ELSE
+                BEGIN
+                    IF(@SchemaName IS NOT NULL
+                       AND @ObjName IS NOT NULL
+                       AND
+                      (
+                          SELECT COUNT(*)
+                          FROM [sys].[objects] [obj]
+                               INNER JOIN [sys].[schemas] [sch] ON [obj].schema_id = [sch].schema_id
+                                                                   AND [sch].[name] = @SchemaName
+                          WHERE [obj].[name] = @ObjName
+                      ) = 0)
+                        BEGIN
+                            SET @Message = 'Could not find an object with the name: '+@SchemaName+'.'+@ObjName;
+                            THROW 50001, @Message, 1;
+                    END;
+            END;
+    END;
+    iF(@SchemaName IS NULL
+               AND OBJECT_ID('tempdb..'+@ObjName) IS NOT NULL)
+   begin
+    set @SchemaName = 'tempdb..'
+   end
+
+    /*
+    These variables and tables will store the values that we need to group the values. The global temp tables are used to get values out of the dynamic sql expressions
+    */
+    DECLARE @numOfBins   [INT]
+          , @binRange    [INT]
+          , @numOfValues [INT]
+  ,@FQObjName nvarchar(128)
+          , @sql         NVARCHAR(MAX);
+    IF OBJECT_ID('tempdb..##stats') IS NOT NULL
+        BEGIN
+            DROP TABLE [##stats];
+    END;
+    IF OBJECT_ID('tempdb..##distValues') IS NOT NULL
+        BEGIN
+            DROP TABLE [##distValues];
+    END;
+    CREATE TABLE [##distValues]
+    ([ky]          [INT]
+     PRIMARY KEY
+     DEFAULT 1
+   , [numOfBins]   [INT]
+   , [binRange]    [bigint]
+   , [numOfValues] [bigint]
+    );
+
+    /*
+    Quote the object and column names to help protect against sql injection. 
+    TODO: Check if they are already quoted. 
+    */
+    SET @ObjName = QUOTENAME(@ObjName);
+    SET @ColName = QUOTENAME(@ColName);
+    Set @FQObjName = @SchemaName+'.'+@ObjName
+
+    --Identify the number of bins using Sturges' formula
+    SET @sql = '
+INSERT INTO ##distValues(numOfBins)
+       SELECT ROUND(LOG(COUNT('+@ColName+'), '+CAST(@logBase AS NVARCHAR(100))+'), 0)
+       FROM '+@FQObjName+';
+   ';
+    IF @Debug = 1
+        BEGIN
+            SELECT 'Sql to execute' 'Result Type'
+                 , @sql;
+    END;
+    EXEC [sp_executesql]
+         @sql;
+    --Set the local variable from the global temp table
+    SET @numOfBins =
+    (
+        SELECT [numOfBins]
+        FROM [##distValues]
+    );
+    --Now that we have the number of bins, determine the width the bins need to be to hold all our values, and the total number of values in our @ObjName
+    SET @sql = '
+update  ##distValues
+set binRange = (
+       SELECT(MAX('+@ColName+') - MIN('+@ColName+')) / '+CAST(@numOfBins AS NVARCHAR(100))+'
+       FROM '+@FQObjName+')
+, numOfValues =(
+       SELECT COUNT(*)
+       FROM '+@FQObjName+')
+   WHERE ky = 1;
+   ';
+    IF @Debug = 1
+        BEGIN
+            SELECT 'Sql to execute' 'Result Type'
+                 , @sql;
+    END;
+    EXEC [sp_executesql]
+         @sql;
+    SET @binRange =
+    (
+        SELECT [binRange]
+        FROM [##distValues]
+    );
+    SET @numOfValues =
+    (
+        SELECT [numOfValues]
+        FROM [##distValues]
+    );
+    IF @Debug = 1
+        BEGIN
+            SELECT 'Variable values' 'Result Type'
+                 , @numOfBins 'numOfBins'
+                 , @binRange 'binRange'
+                 , @numOfValues 'numOfValues';
+    END;
+    SET @sql = '
+SELECT '+@ColName+',
+       FLOOR('+@ColName+' / '+CAST(@binRange AS NVARCHAR(100))+') ''BinNumber'',
+       CAST(CASE
+                WHEN CEILING((FLOOR('+@ColName+' / '+CAST(@binRange AS NVARCHAR(100))+')) * '+CAST(@binRange AS NVARCHAR(100))+') = 0
+                THEN 0
+                ELSE CEILING((FLOOR('+@ColName+' / '+CAST(@binRange AS NVARCHAR(100))+')) * '+CAST(@binRange AS NVARCHAR(100))+')
+            END AS VARCHAR(255))+'' to ''+CAST(FLOOR((FLOOR('+@ColName+' / '+CAST(@binRange AS NVARCHAR(100))+') + 1) * '+CAST(@binRange AS NVARCHAR(100))+') - 1 AS VARCHAR(255)) ''BinName'',
+	   CAST(CASE
+                WHEN CEILING((FLOOR('+@ColName+' / '+CAST(@binRange AS NVARCHAR(100))+')) * '+CAST(@binRange AS NVARCHAR(100))+') = 0
+                THEN 0
+                ELSE CEILING((FLOOR('+@ColName+' / '+CAST(@binRange AS NVARCHAR(100))+')) * '+CAST(@binRange AS NVARCHAR(100))+')
+            END AS VARCHAR(255)) ''BinMinValue'',
+		  CAST(FLOOR((FLOOR('+@ColName+' / '+CAST(@binRange AS NVARCHAR(100))+') + 1) * '+CAST(@binRange AS NVARCHAR(100))+') - 1 AS VARCHAR(255)) ''BinMaxValue''
+INTO ##stats
+FROM '+@FQObjName+';
+';
+    IF @Debug = 1
+        BEGIN
+            SELECT 'Sql to execute' 'Result Type'
+                 , @sql;
+    END;
+    EXEC [sp_executesql]
+         @sql;
+    IF @Debug = 1
+        BEGIN
+            SELECT *
+            FROM [##stats];
+    END;
+    SELECT [BinNumber]
+         , [BinName]
+         , COUNT(*) 'CountOfValues'
+	    ,[BinMinValue]
+	    ,[BinMaxValue]
+    FROM [##stats] [a]
+    GROUP BY [BinNumber]
+           , [BinName]
+		 ,[BinMinValue]
+	    ,[BinMaxValue]
+    ORDER BY [BinNumber];
+    IF OBJECT_ID('tempdb..##distValues') IS NOT NULL
+        BEGIN
+            DROP TABLE [##distValues];
+    END;
+    IF OBJECT_ID('tempdb..##stats') IS NOT NULL
+        BEGIN
+            DROP TABLE [##stats];
+    END;
+    COMMIT TRAN;
+
+--return 0
+
+END TRY
+BEGIN CATCH
+    IF OBJECT_ID('tempdb..##distValues') IS NOT NULL
+        BEGIN
+            DROP TABLE [##distValues];
+    END;
+    IF OBJECT_ID('tempdb..##stats') IS NOT NULL
+        BEGIN
+            DROP TABLE [##stats];
+    END;
+    ROLLBACK TRAN;
+    THROW;
+END CATCH;
+
+IF OBJECT_ID(N'tempdb.dbo.##scoreDist')IS NOT NULL
+       DROP TABLE ##scoreDist
+
+]]></Code></Snippet></CodeSnippet></CodeSnippets>
