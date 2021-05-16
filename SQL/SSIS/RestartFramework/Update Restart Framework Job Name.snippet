@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?> <CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet"> <CodeSnippet Format="1.0.0"> <Header><Title>Update Restart Framework Job Name</Title><Shortcut></Shortcut><Description>Renames a SSIS Restart Framework job</Description><Author>Brandon McClure</Author> <SnippetTypes><SnippetType>Expansion</SnippetType></SnippetTypes></Header><Snippet><Code Language="SQL"><![CDATA[use SsisReportingPack
+go
+
+--Get all configured jobs
+  SELECT distinct eJ.ETLJobId, ej.ETLJobName
+  FROM RestartFramework.ETLJob ej
+
+--Once you know the job name, enter it here
+DECLARE @OldJobName varchar(100) = 'Star_CubeSchemaETLs';
+DECLARE @NewJobName varchar(100) = 'Cube - Caboodle ETLs';
+
+DECLARE @CommitTran BIT = 0 --Set to 1 when you are sure you want to make the changes
+
+--Get the JobID
+declare @JobID int = (SELECT distinct eJ.ETLJobId
+  FROM RestartFramework.ETLJob ej where ej.ETLJobName = @OldJobName)
+
+--Get all the stages for the specified Job
+begin tran
+
+UPDATE RestartFramework.ETLJob
+SET ETLJobName = @NewJobName
+WHERE ETLJobName = @OldJobName
+
+--Get all the stages for the specified Job
+SELECT *
+FROM RestartFramework.ETLJob eJ
+INNER JOIN RestartFramework.ETLJobStage eJS on eJ.ETLJobId = eJS.ETLJobId
+WHERE eJ.ETLJobName = @NewJobName
+
+IF @CommitTran = 1
+  BEGIN
+      COMMIT TRAN
+  END
+ELSE
+  BEGIN
+      ROLLBACK TRAN
+  END 
+]]></Code></Snippet></CodeSnippet></CodeSnippets>

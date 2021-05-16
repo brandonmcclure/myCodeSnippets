@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?> <CodeSnippets xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet"> <CodeSnippet Format="1.0.0"> <Header><Title>Change Ownership of SQL agent job</Title><Shortcut></Shortcut><Description>Runs the sp_take_ownership_of_job_for_non_admins to change the owner of our SQL agent jobs to arbitrary users. This is useful if you need to modify a job that someone else created</Description><Author>Brandon McClure</Author> <SnippetTypes><SnippetType>Expansion</SnippetType></SnippetTypes></Header><Snippet><Declarations>
+                                <Literal>
+                                	<ID>JobName</ID>
+                                	<ToolTip>The name of the SQL agent job to change ownership of</ToolTip>
+                                	<Default>NULL</Default>
+                                </Literal>
+								<Literal>
+                                	<ID>OwnerName</ID>
+                                	<ToolTip>the username of the user who will take ownership</ToolTip>
+                                	<Default>suser_name()</Default>
+                                </Literal>
+			</Declarations><Code Language="SQL"><![CDATA[DECLARE @UserName sysname =  $OwnerName$
+exec msdb.dbo.sp_take_ownership_of_job_for_non_admins @job_name = $JobName$,@owner_login_name = @UserName ]]></Code></Snippet></CodeSnippet></CodeSnippets>
