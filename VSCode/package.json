@@ -1,0 +1,25 @@
+{
+  "name": "Snippets",
+  "displayName": "bmcclure Code Snippets ",
+  "description": "A bunch of code snippets",
+  "version": "0.0.1",
+  "publisher": "bmcclure",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/brandonmcclure/myCodeSnippets"
+  },
+  "engines": {
+    "vscode": "^1.51.0"
+  },
+  "categories": [
+    "Snippets"
+  ],
+  "contributes": {
+    "snippets": [
+      {
+        "path": "./snippets/sql/tsql_test.code-snippets",
+        "language": "sql"
+      }
+    ]
+  }
+}
